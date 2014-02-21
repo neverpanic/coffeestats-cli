@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+
+set -e
+
+: ${HOME?"Required variable \$HOME is not set"}
+
+conf=${HOME}/.coffeestatsrc
+version="1.0"
+useragent="coffeestats-cli/${version} $(curl --version | grep -Eo 'libcurl/[^ ]+')"
+
+usage() {
+	local scriptname=$(basename "$0")
+	echo "Usage: $scriptname ACTION"                                               >&2
+	echo "ACTION may be one of the following:"                                     >&2
+	echo "  coffee"                                                                >&2
+	echo "    Tell coffeestats.org that you just got yourself a nice hot cup of"   >&2
+	echo "    delicious coffee."                                                   >&2
+	echo "  mate"                                                                  >&2
+	echo "    Tell coffeestats.org that you're replenishing your supply of"        >&2
+	echo "    caffeeine with a cold bottle of mate."                               >&2
+	echo "$scriptname is a command-line submission script for coffeestats.org"     >&2
+	echo "by Clemens Lang. See https://github.com/neverpanic/coffeestats-cli"      >&2
+}
+
+if [ ! -f "$conf" ]; then
+	# No config file, user seems to be using this for the first time
+	echo "Welcome to this coffeestats.org submission script. This seems to be"
+	echo "the first time you run this script. Let's start by configuring some"
+	echo "variables."
+	echo
+	echo "Please go to coffeestats.org, log in with your account, go to your"
+	echo "profile and click the \"on-the-run\" button. Copy the URL and paste it"
+	echo "here:"
+
+	# read the on-the-run URL
+	user=""
+	hash=""
+	while [ "$user" == "" ] || [ "$hash" == "" ]; do
+		echo
+		read -p "coffeestats.org on-the-run URL: " ontherunurl
+		# trim
+		ontherunurl=${ontherunurl## *}
+		ontherunurl=${ontherunurl%% *}
+		if [ "$ontherunurl" == "" ]; then
+			echo "The URL was empty, please try again." >&2
+		else
+			user=$(expr "${ontherunurl}" : '.*u=\([^&]*\)' || true)
+			hash=$(expr "${ontherunurl}" : '.*t=\([^&]*\)' || true)
+			if [ "$user" == "" ]; then
+				echo "Couldn't extract user, please make sure you're using the correct URL and try again (or report a bug)." >&2
+			fi
+			if [ "$hash" == "" ]; then
+				echo "Couldn't extract hash, please make sure you're using the correct URL and try again (or report a bug)." >&2
+			fi
+		fi
+	done
+
+	echo
+	echo "Extracted"
+	echo "  coffeestats.org        username: $user"
+	echo "  coffeestats.org on-the-run hash: $hash"
+	echo "$user" > "$conf"
+	echo "$hash" >> "$conf"
+	echo "$(basename "$0") is now ready to submit data to coffeestats.org."
+	echo
+	usage "$0"
+	exit 0
+else
+	# no arguments?! show the usage info
+	if [ -z "$1" ]; then
+		usage
+		exit 1
+	fi
+
+	# parse arguments
+	drink=""
+	time=$(date +'%F %H:%M:%S')
+	timefield=""
+	submit=""
+	case "$1" in
+		"coffee")
+			drink="coffee"
+			timefield="coffeetime"
+			submit="Coffee!"
+			;;
+		"mate")
+			drink="mate"
+			timefield="matetime"
+			submit="Mate!"
+			;;
+		*)
+			echo "Unknown action: $1" >&2
+			usage "$0"
+			exit 1
+			;;
+	esac
+
+	# read username and hash from the config file
+	exec 3< "$conf"
+	read user <&3
+	read hash <&3
+	exec 3>&-
+
+	# submit the data:
+	#  -f: fail on error
+	#  -s: stay silent
+	#  -S: but not so silent that errors won't be shown
+	#  -L: follow redirects (the submit page will always redirect, but the target varies depending on successful authentication)
+	#  -A: set the useragent
+	#  --data-urlencode: the actual data to be sent
+	result=$(curl -f -s -S -L -A "$useragent" --data-urlencode "submit=${submit}" --data-urlencode "${timefield}=${time}" "https://coffeestats.org/ontherun?u=${user}&t=${hash}")
+	return=$?
+	if [[ $return != 0 ]] || (echo "${result}" | grep 'password' >/dev/null); then
+		if [[ $return != 0 ]]; then
+			echo "cURL exited with non-zero return value $return; the call probably failed." >&2
+		else
+			echo "Submission returned the login page and probably failed!" >&2
+		fi
+	else
+		case "$drink" in
+			"coffee")
+				echo "It's done! Enjoy your delicious coffee!"
+				;;
+			"mate")
+				echo "It's done! Aah! A refreshing bottle of mate!"
+				;;
+		esac
+	fi
+fi
