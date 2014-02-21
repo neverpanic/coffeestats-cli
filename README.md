@@ -1,4 +1,5 @@
-# vim:tw=120
+<!--- vim:tw=120
+--->
 coffeestats-cli
 ===============
 
