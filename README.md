@@ -19,4 +19,4 @@ To use `coffeestats-cli`, call it with a single argument that specifies the type
 
 License
 -------
-`coffeestats-cli` is licensed under the 3-clause BSD license.
+`coffeestats-cli` is licensed under the Simplified BSD license.
