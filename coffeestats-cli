@@ -5,8 +5,17 @@ set -e
 : ${HOME?"Required variable \$HOME is not set"}
 
 conf=${HOME}/.coffeestatsrc
-version="1.1"
+version="1.1.1"
 useragent="coffeestats-cli/${version} $(curl --version | grep -Eo 'libcurl/[^ ]+')"
+
+# find the path to the script itself, http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+	DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+	SOURCE="$(readlink "$SOURCE")"
+	[[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 usage() {
 	local scriptname=$(basename "$0")
@@ -105,5 +114,5 @@ else
 		--data-urlencode "time=${time}" "https://coffeestats.org/api/v1/add-drink")
 	return=$?
 
-	echo "${result}" | "$(dirname "$0")/.coffeestats_format_output.py" "${beverage}"
+	echo "${result}" | "${DIR}/.coffeestats_format_output.py" "${beverage}"
 fi
