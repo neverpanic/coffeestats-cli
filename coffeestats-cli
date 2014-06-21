@@ -5,7 +5,7 @@ set -e
 : ${HOME?"Required variable \$HOME is not set"}
 
 conf=${HOME}/.coffeestatsrc
-version="1.0"
+version="1.1"
 useragent="coffeestats-cli/${version} $(curl --version | grep -Eo 'libcurl/[^ ]+')"
 
 usage() {
@@ -73,20 +73,11 @@ else
 	fi
 
 	# parse arguments
-	drink=""
+	beverage=""
 	time=$(date +'%F %H:%M:%S')
-	timefield=""
-	submit=""
 	case "$1" in
-		"coffee")
-			drink="coffee"
-			timefield="coffeetime"
-			submit="Coffee!"
-			;;
-		"mate")
-			drink="mate"
-			timefield="matetime"
-			submit="Mate!"
+		"coffee" | "mate")
+			beverage="$1"
 			;;
 		*)
 			echo "Unknown action: $1" >&2
@@ -102,28 +93,17 @@ else
 	exec 3>&-
 
 	# submit the data:
-	#  -f: fail on error
 	#  -s: stay silent
 	#  -S: but not so silent that errors won't be shown
 	#  -L: follow redirects (the submit page will always redirect, but the target varies depending on successful authentication)
 	#  -A: set the useragent
 	#  --data-urlencode: the actual data to be sent
-	result=$(curl -f -s -S -L -A "$useragent" --data-urlencode "submit=${submit}" --data-urlencode "${timefield}=${time}" "https://coffeestats.org/ontherun?u=${user}&t=${hash}")
+	result=$(curl -s -S -L -A "$useragent" \
+		--data-urlencode "u=${user}" \
+		--data-urlencode "t=${hash}" \
+		--data-urlencode "beverage=${beverage}" \
+		--data-urlencode "time=${time}" "https://coffeestats.org/api/v1/add-drink")
 	return=$?
-	if [[ $return != 0 ]] || (echo "${result}" | grep 'password' >/dev/null); then
-		if [[ $return != 0 ]]; then
-			echo "cURL exited with non-zero return value $return; the call probably failed." >&2
-		else
-			echo "Submission returned the login page and probably failed!" >&2
-		fi
-	else
-		case "$drink" in
-			"coffee")
-				echo "It's done! Enjoy your delicious coffee!"
-				;;
-			"mate")
-				echo "It's done! Aah! A refreshing bottle of mate!"
-				;;
-		esac
-	fi
+
+	echo "${result}" | "$(dirname "$0")/.coffeestats_format_output.py" "${beverage}"
 fi
