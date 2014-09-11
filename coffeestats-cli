@@ -5,7 +5,7 @@ set -e
 : ${HOME?"Required variable \$HOME is not set"}
 
 conf=${HOME}/.coffeestatsrc
-version="1.1.1"
+version="1.1.2"
 useragent="coffeestats-cli/${version} $(curl --version | grep -Eo 'libcurl/[^ ]+')"
 
 # find the path to the script itself, http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
@@ -53,8 +53,8 @@ if [ ! -f "$conf" ]; then
 		if [ "$ontherunurl" == "" ]; then
 			echo "The URL was empty, please try again." >&2
 		else
-			user=$(expr "${ontherunurl}" : '.*u=\([^&]*\)' || true)
-			hash=$(expr "${ontherunurl}" : '.*t=\([^&]*\)' || true)
+			user=$(expr "${ontherunurl}" : '.*/ontherun/\([^/]*\)/' || true)
+			hash=$(expr "${ontherunurl}" : '.*/ontherun/[^/]*/\([^/]*\)' || true)
 			if [ "$user" == "" ]; then
 				echo "Couldn't extract user, please make sure you're using the correct URL and try again (or report a bug)." >&2
 			fi
